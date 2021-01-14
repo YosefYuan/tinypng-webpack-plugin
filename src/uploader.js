@@ -84,15 +84,18 @@ function deImgQueue(queue, keys, compilation) {
 
       try {
         let compressImg = yield new Promise((resolve, reject) => {
-          tinify
-            .fromBuffer(fileInfo.source.source())
-            .toBuffer((err, resultData) => {
+          const originSource = fileInfo.source.source();
+          if (configOptions.init) {
+            resolve(originSource);
+          } else {
+            tinify.fromBuffer(originSource).toBuffer((err, resultData) => {
               if (err) {
                 reject(err);
               } else {
                 resolve(resultData);
               }
             });
+          }
         });
         //压缩图片成功
         fileInfo.source._value = compressImg;

@@ -14,6 +14,7 @@ class TinyPNGPlugin {
         ext: ['png', 'jpeg', 'jpg'],
         proxy: '',
         cacheDir: path.resolve(__dirname, 'map'),
+        init: false,
       },
       options
     );
