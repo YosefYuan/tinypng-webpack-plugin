@@ -2,7 +2,6 @@
 const co = require('co');
 const _ = require('lodash');
 const tinify = require('tinify');
-const stdout = process.stdout;
 const fs = require('fs');
 const md5 = require('md5');
 const path = require('path');
@@ -39,7 +38,7 @@ function getImgQueue(list, reg) {
 function* writeImg(imgBuffer, md5) {
   let filePath = yield new Promise(function (resolve, reject) {
     //获取md5值
-    let filePath = path.resolve(configOptions.cachePath, md5);
+    let filePath = path.resolve(configOptions.cacheDir, md5);
     fs.writeFile(filePath, imgBuffer, function (err) {
       if (err) {
         reject(err);
@@ -131,7 +130,7 @@ function deImgQueue(queue, keys, compilation) {
  * 初始化字典对象
  */
 function* initDict() {
-  let dictPath = path.resolve(configOptions.cachePath, 'dict');
+  let dictPath = path.resolve(configOptions.cacheDir, 'dict');
   yield new Promise(function (resolve, reject) {
     let rl = readline.createInterface({
       input: fs.createReadStream(dictPath),
@@ -152,9 +151,8 @@ function* initDict() {
 /**
  * 将appendDict内容导入到dict文件中
  */
-function* appendDictFile(options) {
-  let dictPath = path.resolve(configOptions.cachePath, 'dict');
-
+function* appendDictFile() {
+  let dictPath = path.resolve(configOptions.cacheDir, 'dict');
   function append(filePath, data) {
     return new Promise(function (resolve, reject) {
       fs.appendFile(filePath, data, function (err) {
