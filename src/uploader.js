@@ -43,7 +43,7 @@ function* writeImg(imgBuffer, md5) {
       if (err) {
         reject(err);
       } else {
-        resolve(filePath);
+        resolve();
       }
     });
   });
@@ -66,8 +66,9 @@ function deImgQueue(queue, keys, compilation) {
       try {
         if (dict[fileMd5]) {
           //找到对应的文件流，加入到fileInfo.source._value中
+          let filePath = path.resolve(configOptions.cacheDir, fileMd5);
           let compressBuffer = yield new Promise(function (resolve, reject) {
-            fs.readFile(dict[fileMd5], function (err, buffer) {
+            fs.readFile(filePath, function (err, buffer) {
               if (err) {
                 reject(err);
               } else {
@@ -100,8 +101,8 @@ function deImgQueue(queue, keys, compilation) {
         //压缩图片成功
         fileInfo.source._value = compressImg;
         // 缓存压缩后的文件
-        let filePath = yield writeImg(compressImg, fileMd5);
-        appendDict[fileMd5] = filePath;
+        yield writeImg(compressImg, fileMd5);
+        appendDict[fileMd5] = fileMd5;
       } catch (err) {
         if (err instanceof tinify.AccountError) {
           // Verify your API key and account limit.
