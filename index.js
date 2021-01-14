@@ -46,7 +46,7 @@ class TinyPNGPlugin {
         })
         .catch((e) => {
           stdout.stop();
-          compiler.errors.push(e);
+          compilation.errors.push(e);
         });
     });
   }
