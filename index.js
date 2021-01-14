@@ -7,7 +7,6 @@ const stdout = require('./src/stdout.js');
 
 class TinyPNGPlugin {
   constructor(options) {
-    debugger;
     this.pluginName = 'tinypng-webpack-plugin';
     this.options = _.assign(
       {

@@ -2,7 +2,6 @@
 const co = require('co');
 const _ = require('lodash');
 const tinify = require('tinify');
-const stdout = process.stdout;
 const fs = require('fs');
 const md5 = require('md5');
 const path = require('path');
