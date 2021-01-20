@@ -23,8 +23,8 @@ class TinyPNGPlugin {
       throw new Error('need tinyPNG key');
     }
 
-    if (_.isString(this.options.key)) {
-      this.options.key = [this.options.key];
+    if (!this.options.ext instanceof Array) {
+      throw new Error('ext should be an array');
     }
 
     if (_.isString(this.options.proxy) && this.options.proxy !== '') {
@@ -32,9 +32,6 @@ class TinyPNGPlugin {
         throw new Error('the proxy must be HTTP proxy!');
       }
     }
-
-    //正则表达式筛选图片
-    this.reg = new RegExp('.(' + this.options.ext.join('|') + ')$', 'i');
   }
   apply(compiler) {
     compiler.hooks.emit.tapPromise(this.pluginName, (compilation) => {

@@ -5,16 +5,22 @@ const tinify = require('tinify');
 const fs = require('fs');
 const md5 = require('md5');
 const path = require('path');
-const readline = require('readline');
+const util = require('util');
+const helper = require('./helper');
+
+let readdir = util.promisify(fs.readdir);
+let stat = util.promisify(fs.lstat);
+let readFile = util.promisify(fs.readFile);
+let writeFile = util.promisify(fs.writeFile);
 
 let dict = {},
-  appendDict = {},
-  splitCode = '$$$';
-
-let configOptions = null;
+  options = null,
+  reg,
+  key = '',
+  dictPath;
 
 function getImgQueue(list, reg) {
-  //对应分成三个队列，开启3个线程进行上传
+  // upload using 3 threads
   let queue = [[], [], []];
   let count = 0;
   _.each(list, function (val, key) {
@@ -31,176 +37,221 @@ function getImgQueue(list, reg) {
 }
 
 /**
- * 写操作，将压缩后的图片存储在一个固定的位置
- * @param {*} md5 压缩前 md5指纹
- * @param {*} imgBuffer 压缩后的 img buffer
+ * traverse a folder recursively and get a files array
+ * @param {*} imgBuffer
+ * @param {*} md5
  */
-function* writeImg(imgBuffer, md5) {
-  let filePath = yield new Promise(function (resolve, reject) {
-    //获取md5值
-    let filePath = path.resolve(configOptions.cacheDir, md5);
-    fs.writeFile(filePath, imgBuffer, function (err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
+function walk(dir, reg) {
+  return readdir(dir)
+    .then((files) => {
+      return Promise.all(
+        files.map((f) => {
+          let file = path.join(dir, f);
+          return stat(file).then((stat) => {
+            if (stat.isDirectory()) {
+              return walk(file, reg);
+            } else {
+              return reg.exec(file) ? [file] : [];
+            }
+          });
+        })
+      );
+    })
+    .then((files) => {
+      return files.reduce((pre, cur) => pre.concat(cur));
     });
-  });
-  return filePath;
 }
 
-function deImgQueue(queue, keys, compilation) {
-  let reTryCount = 3;
-  let uploadErrorList = [];
+/**
+ * get the img map,like this: { md5: filePath }
+ */
+function* getImgMap() {
+  let reg = new RegExp('.(' + options.ext.join('|') + ')$', 'i');
+  let map = {};
+  const files = yield walk(options.root, reg);
   return co(function* () {
-    function* upload(fileInfo, reTryCount) {
-      if (reTryCount < 0) {
-        //超过尝试次数
-        uploadErrorList.push(fileInfo.name);
-        return;
+    for (let filePath of files) {
+      const buffer = yield readFile(filePath);
+      const fileMd5 = md5(buffer);
+      if (map[fileMd5]) {
+        if (map[fileMd5] instanceof Array) {
+          map[fileMd5] = [...map[fileMd5], filePath];
+        } else {
+          map[fileMd5] = [map[fileMd5], filePath];
+        }
+      } else {
+        map[fileMd5] = filePath;
       }
+    }
+    return map;
+  });
+}
 
-      // 添加缓存，防止多次走服务器 md5
-      let fileMd5 = md5(fileInfo.source.source());
-      try {
-        if (dict[fileMd5]) {
-          //找到对应的文件流，加入到fileInfo.source._value中
-          let filePath = path.resolve(configOptions.cacheDir, fileMd5);
-          let compressBuffer = yield new Promise(function (resolve, reject) {
-            fs.readFile(filePath, function (err, buffer) {
-              if (err) {
-                reject(err);
-              } else {
-                resolve(buffer);
-              }
-            });
-          });
-          fileInfo.source._value = compressBuffer;
+/**
+ * write img buffer to a path
+ * @param {*} md5 img's fingerprint before compress
+ * @param {*} imgBuffer compressed img buffer
+ */
+function* writeImg(imgBuffer, md5, map) {
+  const filePath = map[md5];
+  if (filePath) {
+    if (filePath instanceof Array) {
+      for (let singleFilePath of filePath) {
+        yield writeFile(singleFilePath, imgBuffer);
+      }
+    } else {
+      yield writeFile(filePath, imgBuffer);
+    }
+  }
+}
+
+function formatDict(newFilePath) {
+  newFilePath = formatPath(newFilePath);
+  const dictEntries = Object.entries(dict);
+  for (const [key, val] of dictEntries) {
+    if (val instanceof Array) {
+      dict[key] = helper.removeValInArr(val, newFilePath);
+      if (dict[key].length === 0) delete dict[key];
+    } else if (dict[key] === newFilePath) {
+      delete dict[key];
+    }
+  }
+}
+
+/**
+ * format filePath
+ * @param {*} newFilePath
+ */
+function formatPath(newFilePath) {
+  const formatSinglePath = (originSinglePath) =>
+    originSinglePath.split(options.root).join('');
+  if (newFilePath instanceof Array) {
+    return newFilePath.map((singleFilePath) =>
+      formatSinglePath(singleFilePath)
+    );
+  } else {
+    return formatSinglePath(newFilePath);
+  }
+}
+
+function deImgQueue(queue, map) {
+  if (queue.length > 0) {
+    let reTryCount = 3;
+    let uploadErrorList = [];
+    return co(function* () {
+      function* upload(fileInfo, reTryCount) {
+        // check if exceed the retry times
+        if (reTryCount < 0) {
+          uploadErrorList.push(fileInfo.name);
           return;
         }
-      } catch (e) {
-        throw e;
-      }
 
-      try {
-        let compressImg = yield new Promise((resolve, reject) => {
+        let fileMd5 = md5(fileInfo.source.source());
+        let newFilePath = map[fileMd5];
+        let originPath = dict[fileMd5];
+        formatDict(newFilePath);
+
+        // check cache and update path
+        if (originPath) {
+          dict[fileMd5] = formatPath(newFilePath);
+          return;
+        }
+
+        // compress img
+        try {
+          let compressedMd5;
+          let compressImg;
           const originSource = fileInfo.source.source();
-          if (configOptions.init) {
-            resolve(originSource);
-          } else {
+          if (options.init) {
+            dict[fileMd5] = formatPath(newFilePath);
+            return;
+          }
+          compressImg = yield new Promise((resolve, reject) => {
             tinify.fromBuffer(originSource).toBuffer((err, resultData) => {
               if (err) {
                 reject(err);
               } else {
+                compressedMd5 = md5(resultData);
                 resolve(resultData);
               }
             });
+          });
+          // success
+          fileInfo.source._value = compressImg;
+          // save to origin file
+          if (compressedMd5) {
+            dict[compressedMd5] = formatPath(newFilePath);
+            yield writeImg(compressImg, fileMd5, map);
           }
-        });
-        //压缩图片成功
-        fileInfo.source._value = compressImg;
-        // 缓存压缩后的文件
-        yield writeImg(compressImg, fileMd5);
-        appendDict[fileMd5] = fileMd5;
-      } catch (err) {
-        if (err instanceof tinify.AccountError) {
-          // Verify your API key and account limit.
-          if (!keys) {
-            //输出文件名 fileInfo.name
-            uploadErrorList.push(fileInfo.name);
-            return;
+        } catch (err) {
+          if (err instanceof tinify.AccountError) {
+            yield upload(fileInfo, reTryCount);
+          } else {
+            // Something else went wrong, unrelated to the Tinify API.
+            yield upload(fileInfo, reTryCount - 1);
           }
-          //tinify key 更换
-          tinify.key = _.first(keys);
-          keys = _.drop(keys);
-          yield upload(fileInfo, reTryCount);
-        } else {
-          // Something else went wrong, unrelated to the Tinify API.
-          yield upload(fileInfo, reTryCount - 1);
         }
       }
-    }
 
-    for (let fileInfo of queue) {
-      yield upload(fileInfo, reTryCount);
-    }
-
-    return uploadErrorList;
-  });
+      for (let fileInfo of queue) {
+        yield upload(fileInfo, reTryCount);
+      }
+      return uploadErrorList;
+    });
+  } else {
+    return Promise.resolve();
+  }
 }
 
 /**
- * 初始化字典对象
+ * init dict
  */
 function* initDict() {
-  let dictPath = path.resolve(configOptions.cacheDir, 'dict');
-  yield new Promise(function (resolve, reject) {
-    let rl = readline.createInterface({
-      input: fs.createReadStream(dictPath),
-    });
-    rl.on('line', function (line) {
-      //给dict对象 添加属性与对应的值
-      if (line && line.indexOf(splitCode) >= 0) {
-        let list = line.split(splitCode);
-        dict[list[0]] = list[1];
-      }
-    });
-    rl.on('close', function () {
-      resolve(dict);
-    });
-  });
+  dictPath = path.resolve(options.cacheDir, 'dict.json');
+  yield helper.checkAndCreateFile(dictPath, '{}');
+  const data = yield readFile(dictPath, 'utf8');
+  dict = JSON.parse(data);
 }
 
 /**
- * 将appendDict内容导入到dict文件中
+ * save content to file
  */
 function* appendDictFile() {
-  let dictPath = path.resolve(configOptions.cacheDir, 'dict');
-  function append(filePath, data) {
-    return new Promise(function (resolve, reject) {
-      fs.appendFile(filePath, data, function (err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(resolve);
-        }
-      });
-    });
+  yield writeFile(dictPath, JSON.stringify(dict));
+}
+
+function init(innerOptions) {
+  options = innerOptions;
+  reg = new RegExp('.(' + options.ext.join('|') + ')$', 'i');
+  key = options.key;
+  if (options.proxy) {
+    // Proxy is enabled.
+    // Because it's scoket connect，it takes a little time (timeout) to close.
+    tinify.proxy = options.proxy;
   }
-  for (let key in appendDict) {
-    yield append(dictPath, key + splitCode + appendDict[key] + '\n');
-  }
+  tinify.key = key;
 }
 
 /**
- * 进行图片上传主操作
- * @param  {[type]} compilation     [webpack 构建对象]
- * @param  {[type]} options         [选项]
+ * main program
+ * @param  {[type]} compilation     [webpack compilation object]
+ * @param  {[type]} options         [custom options]
  * @return {Promise}
  */
-module.exports = (compilation, options) => {
-  //过滤文件尾缀名称
-  configOptions = options;
-  let reg = new RegExp('.(' + options.ext.join('|') + ')$', 'i');
-  let keys = options.key;
-  if (options.proxy) {
-    //这里启用proxy 但是proxy因为建立scoket连接，最后需要有个超时的等待时间来关闭这个scoket
-    tinify.proxy = options.proxy;
-  }
+module.exports = (compilation, innerOptions) => {
+  init(innerOptions);
   return co(function* () {
-    //初始化字典
+    const map = yield getImgMap;
+    //init dict
     yield initDict;
     let imgQueue = getImgQueue(compilation.assets, reg);
-    tinify.key = _.first(keys);
-    keys = _.drop(keys);
     let result = yield Promise.all([
-      deImgQueue(imgQueue[0], keys, compilation),
-      deImgQueue(imgQueue[1], keys, compilation),
-      deImgQueue(imgQueue[2], keys, compilation),
+      deImgQueue(imgQueue[0], map),
+      deImgQueue(imgQueue[1], map),
+      deImgQueue(imgQueue[2], map),
     ]);
 
-    //将appendDict 保存到dict文件中
+    // save cache content to dict
     yield appendDictFile;
     return result;
   });
