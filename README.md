@@ -4,12 +4,15 @@ a img compress plugin use with tinyPNG for webpack.
 
 ## Get TinyPNG key
 
-[link](https://tinypng.com/developers)
+[For Developer](https://tinypng.com/developers)
 
 ## Installation
 ```shell
-# for webpack 4
-$ npm install tinypng-webpack-plugin --save-dev
+yarn add tinypng-webpack-plugin@https://gitlab.jiliguala.com/npm/tinypng-webpack-plugin.git
+
+or
+
+npm install git+https://gitlab.jiliguala.com/npm/tinypng-webpack-plugin.git --save-dev
 ```
 
 ## Example Webpack Config
