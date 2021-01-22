@@ -135,72 +135,68 @@ function formatPath(newFilePath) {
 }
 
 function deImgQueue(queue, map) {
-  if (queue.length > 0) {
-    let reTryCount = 3;
-    let uploadErrorList = [];
-    return co(function* () {
-      function* upload(fileInfo, reTryCount) {
-        // check if exceed the retry times
-        if (reTryCount < 0) {
-          uploadErrorList.push(fileInfo.name);
-          return;
-        }
+  let reTryCount = 3;
+  let uploadErrorList = [];
+  return co(function* () {
+    function* upload(fileInfo, reTryCount) {
+      // check if exceed the retry times
+      if (reTryCount < 0) {
+        uploadErrorList.push(fileInfo.name);
+        return;
+      }
 
-        let fileMd5 = md5(fileInfo.source.source());
-        let newFilePath = map[fileMd5];
-        let originPath = dict[fileMd5];
-        formatDict(newFilePath);
+      let fileMd5 = md5(fileInfo.source.source());
+      let newFilePath = map[fileMd5];
+      let originPath = dict[fileMd5];
+      formatDict(newFilePath);
 
-        // check cache and update path
-        if (originPath) {
+      // check cache and update path
+      if (originPath) {
+        dict[fileMd5] = formatPath(newFilePath);
+        return;
+      }
+
+      // compress img
+      try {
+        let compressedMd5;
+        let compressImg;
+        const originSource = fileInfo.source.source();
+        if (options.init) {
           dict[fileMd5] = formatPath(newFilePath);
           return;
         }
-
-        // compress img
-        try {
-          let compressedMd5;
-          let compressImg;
-          const originSource = fileInfo.source.source();
-          if (options.init) {
-            dict[fileMd5] = formatPath(newFilePath);
-            return;
-          }
-          compressImg = yield new Promise((resolve, reject) => {
-            tinify.fromBuffer(originSource).toBuffer((err, resultData) => {
-              if (err) {
-                reject(err);
-              } else {
-                compressedMd5 = md5(resultData);
-                resolve(resultData);
-              }
-            });
+        compressImg = yield new Promise((resolve, reject) => {
+          tinify.fromBuffer(originSource).toBuffer((err, resultData) => {
+            if (err) {
+              reject(err);
+            } else {
+              compressedMd5 = md5(resultData);
+              resolve(resultData);
+            }
           });
-          // success
-          fileInfo.source._value = compressImg;
-          // save to origin file
-          if (compressedMd5) {
-            dict[compressedMd5] = formatPath(newFilePath);
-            yield writeImg(compressImg, fileMd5, map);
-          }
-        } catch (err) {
-          if (err instanceof tinify.AccountError) {
-            yield upload(fileInfo, reTryCount);
-          } else {
-            // Something else went wrong, unrelated to the Tinify API.
-            yield upload(fileInfo, reTryCount - 1);
-          }
+        });
+        // success
+        fileInfo.source._value = compressImg;
+        // save to origin file
+        if (compressedMd5) {
+          dict[compressedMd5] = formatPath(newFilePath);
+          yield writeImg(compressImg, fileMd5, map);
+        }
+      } catch (err) {
+        if (err instanceof tinify.AccountError) {
+          yield upload(fileInfo, reTryCount);
+        } else {
+          // Something else went wrong, unrelated to the Tinify API.
+          yield upload(fileInfo, reTryCount - 1);
         }
       }
+    }
 
-      for (let fileInfo of queue) {
-        yield upload(fileInfo, reTryCount);
-      }
-      return uploadErrorList;
-    });
-  } else {
-    return Promise.resolve();
-  }
+    for (let fileInfo of queue) {
+      yield upload(fileInfo, reTryCount);
+    }
+    return uploadErrorList;
+  });
 }
 
 /**
