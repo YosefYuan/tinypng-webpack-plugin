@@ -1,38 +1,45 @@
 {
-    "name": "tinypng-webpack-plugin",
-    "version": "2.0.0",
-    "description": "a webpack plugin use tinyPNG",
-    "main": "index.js",
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "dependencies": {
-        "lodash": "^4.17.4",
-        "tinify": "^1.5.0",
-        "colors": "^1.1.2",
-        "co": "^4.6.0",
-        "md5": "^2.2.1"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/skyujilong/tinypng-webpack-plugin.git"
-    },
-    "keywords": [
-        "webpack",
-        "tinyPNG",
-        "webpack tinyPNG",
-        "tinyPNG webpack"
-    ],
-    "author": "Jilong Yu",
-    "license": "MIT",
-    "engines": {
-        "node": ">=4.0.0"
-    },
-    "peerDependencies": {
-        "webpack": "^4.0.0"
-    },
-    "bugs": {
-        "url": "https://github.com/skyujilong/tinypng-webpack-plugin/issues"
-    },
-    "homepage": "https://github.com/skyujilong/tinypng-webpack-plugin#readme"
+  "name": "@yosef/tinypng-webpack-plugin",
+  "version": "2.0.0",
+  "description": "A webpack plugin used to compress img by the tinypng node tool.",
+  "main": "index.js",
+  "dependencies": {
+    "lodash": "^4.17.20"
+  },
+  "devDependencies": {
+    "lodash": "^4.17.4",
+    "tinify": "^1.5.0",
+    "colors": "^1.1.2",
+    "co": "^4.6.0",
+    "md5": "^2.2.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/YosefYuan/tinypng-webpack-plugin.git"
+  },
+  "keywords": [
+    "tinypng",
+    "webpack",
+    "cache",
+    "compress",
+    "img",
+    "png",
+    "jpg",
+    "jpeg"
+  ],
+  "author": "Jilong Yu | Yosef Yuan",
+  "license": "ISC",
+  "engines": {
+    "node": ">=4.0.0"
+  },
+  "peerDependencies": {
+    "webpack": "^4.0.0"
+  },
+  "bugs": {
+    "url": "https://github.com/YosefYuan/tinypng-webpack-plugin/issues"
+  },
+  "homepage": "https://github.com/YosefYuan/tinypng-webpack-plugin#readme"
 }
