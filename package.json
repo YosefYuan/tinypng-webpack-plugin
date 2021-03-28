@@ -1,5 +1,5 @@
 {
-  "name": "@yosef/tinypng-webpack-plugin",
+  "name": "yosef-tinypng-webpack-plugin",
   "version": "2.0.0",
   "description": "A webpack plugin used to compress img by the tinypng node tool.",
   "main": "index.js",

@@ -35,7 +35,7 @@ var tinyPngWebpackPlugin = require('tinypng-webpack-plugin');
 ## Usage
 ```javascript
 new tinyPngWebpackPlugin({
-    key:"your tinyPNG key", //can be Array, eg:['your key 1','your key 2'....]
+    key:"your tinyPNG key", //string, 'your key',
     ext: ['png', 'jpeg', 'jpg'],//img ext name
     proxy:'http://user:pass@192.168.0.1:8080',// If you are from China and can use the shadowsocks(vpn), the default proxy will be 'http:127.0.0.1:1080'.
     cacheDir: path.resolve(__dirname, 'src/assets/cache'),
