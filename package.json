@@ -1,17 +1,17 @@
 {
   "name": "yosef-tinypng-webpack-plugin",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A webpack plugin used to compress img by the tinypng node tool.",
   "main": "index.js",
   "dependencies": {
     "lodash": "^4.17.20"
   },
   "devDependencies": {
-    "lodash": "^4.17.4",
-    "tinify": "^1.5.0",
-    "colors": "^1.1.2",
     "co": "^4.6.0",
-    "md5": "^2.2.1"
+    "colors": "^1.1.2",
+    "lodash": "^4.17.4",
+    "md5": "^2.2.1",
+    "tinify": "^1.5.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
