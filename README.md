@@ -8,11 +8,11 @@ a img compress plugin use with tinyPNG for webpack.
 
 ## Installation
 ```shell
-yarn add tinypng-webpack-plugin@https://gitlab.jiliguala.com/npm/tinypng-webpack-plugin.git
+yarn add yosef-tinypng-webpack-plugin
 
 or
 
-npm install git+https://gitlab.jiliguala.com/npm/tinypng-webpack-plugin.git --save-dev
+npm install yosef-tinypng-webpack-plugin --save-dev
 ```
 
 ## Example Webpack Config
