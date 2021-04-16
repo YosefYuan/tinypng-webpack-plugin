@@ -18,7 +18,7 @@ npm install yosef-tinypng-webpack-plugin --save-dev
 ## Example Webpack Config
 
 ```javascript
-var tinyPngWebpackPlugin = require('tinypng-webpack-plugin');
+var tinyPngWebpackPlugin = require('yosef-tinypng-webpack-plugin');
 
     //in your webpack plugins array
     module.exports = {
